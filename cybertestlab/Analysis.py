@@ -41,14 +41,8 @@ class Analysis(object):
                     # reasons
                     pass
 
-        elfs = []
-        for result in filter(None, find_results):
-            elfs.append(result.split(':')[0])
-
-        if len(elfs) == 0:
-            return None
-        else:
-            return filter(None, elfs)
+        elfs = [result.split(':')[0] for result in filter(None, find_results)]
+        return filter(None, elfs) if elfs else None
 
     def scan_elfs(self, elfs):
         if not elfs:
@@ -57,19 +51,18 @@ class Analysis(object):
 
         for elf in elfs:
             if self.debug:
-                print('++ elf: ' + elf.replace(self.path + '/', ''))
+                print('++ elf: ' + elf.replace(f'{self.path}/', ''))
             binary = elf
-            relative_binary = \
-                binary.replace(self.path + '/', '').replace('.', '_')
+            relative_binary = binary.replace(f'{self.path}/', '').replace('.', '_')
 
-            scan_results[relative_binary] = {}
-            scan_results[relative_binary]['filename'] = binary.replace(
-                self.path + '/', '')
+            scan_results[relative_binary] = {
+                'filename': binary.replace(f'{self.path}/', '')
+            }
 
             # get hardening-check results
-            cmd = self.hardening_check + ' ' + binary
+            cmd = f'{self.hardening_check} {binary}'
             hardening_results = \
-                self.run_command(cmd)
+                    self.run_command(cmd)
 
             # turn the hardening-check results into a dict
             pretty_results = {}
@@ -85,15 +78,15 @@ class Analysis(object):
             scan_results[relative_binary]['hardening-check'] = pretty_results
 
             # get function report
-            cmd = self.hardening_check + ' -R ' + binary
+            cmd = f'{self.hardening_check} -R {binary}'
             hardening_results = \
-                self.run_command(cmd)
+                    self.run_command(cmd)
             # relevant stuff starts at 9th line
             scan_results[relative_binary]['report-functions'] = \
-                filter(None, hardening_results.split('\n')[8:])
+                    filter(None, hardening_results.split('\n')[8:])
 
             # get libc functions
-            cmd = self.hardening_check + ' -F ' + binary
+            cmd = f'{self.hardening_check} -F {binary}'
             hcdashf = filter(
                 None,
                 self.run_command(cmd).split('\n')
@@ -103,11 +96,16 @@ class Analysis(object):
                 if len(lib.split("'")) > 1:
                     hcdashf_clean.append(lib.split("'")[1])
                     scan_results[relative_binary]['find-libc-functions'] = \
-                        hcdashf_clean
-                else:
-                    if self.debug:
-                        print('+++ ' + elf.replace(self.path + '/', '') +
-                              ' had no `hardening-check -F` output')
+                            hcdashf_clean
+                elif self.debug:
+                    print(
+                        (
+                            '+++ '
+                            + elf.replace(f'{self.path}/', '')
+                            + ' had no `hardening-check -F` output'
+                        )
+                    )
+
 
             scan_results[relative_binary]['complexity'] = self.get_complexity(binary)
 
@@ -115,7 +113,7 @@ class Analysis(object):
 
     def get_complexity(self, elf):
         if self.debug:
-            print('++ get_complexity getting cyclomatic complexity via r2 for: ' + elf)
+            print(f'++ get_complexity getting cyclomatic complexity via r2 for: {elf}')
         complexity = 0
         cycles_cost = 0
         try:
@@ -127,11 +125,10 @@ class Analysis(object):
                 functions = r2.cmdj('afl')
                 entry = 'entry'
                 for f in functions:
-                    if f.get('name'):
-                        if f['name'] == 'entry0':
-                            entry = 'entry0'
-                cycles_cost = r2.cmdj('afC @' + entry)
-                complexity = r2.cmdj('afCc @' + entry)
+                    if f.get('name') and f['name'] == 'entry0':
+                        entry = 'entry0'
+                cycles_cost = r2.cmdj(f'afC @{entry}')
+                complexity = r2.cmdj(f'afCc @{entry}')
             elif elf.endswith('.a'):
                 complexity = r2.cmdj('afCc')
             else:
@@ -139,9 +136,9 @@ class Analysis(object):
                 complexity = r2.cmdj('afCc @main')
         except Exception as e:
             if self.debug:
-                print('+ get_complexity caught exception: ' + str(e))
+                print(f'+ get_complexity caught exception: {str(e)}')
             r2.quit()
-            return {'r2aa': 'failed: ' + str(e)}
+            return {'r2aa': f'failed: {str(e)}'}
 
         r2.quit()
         return {'r2aa':
@@ -156,5 +153,5 @@ class Analysis(object):
                                  stderr=subprocess.STDOUT)
             results = p.communicate()[0]
         except Exception as e:
-            raise Exception(cmd + ' failed: ' + str(e))
+            raise Exception(f'{cmd} failed: {str(e)}')
         return results

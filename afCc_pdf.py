@@ -10,10 +10,7 @@ import pylab as pl
 
 complexities = []
 with open(sys.argv[1], 'r') as f:
-	for line in f:
-		if int(line) > 0:
-			complexities.append(int(line))
-
+	complexities.extend(int(line) for line in f if int(line) > 0)
 textbox = 'cyclomatic complexity pdf for fedora 27 (incomplete)\n' + \
           'total: ' + str(len(complexities)) + '\n' + \
           'minimum: ' + str(min(complexities)) + '\n' + \

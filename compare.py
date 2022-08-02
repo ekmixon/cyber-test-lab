@@ -15,15 +15,19 @@ package_scores1 = []
 binary_scores1 = []
 for package in jsondata1.keys():
     package_scores1.append(jsondata1[package]['package_score'])
-    for binary in jsondata1[package]['binary_scores']:
-        binary_scores1.append(jsondata1[package]['binary_scores'][binary])
+    binary_scores1.extend(
+        jsondata1[package]['binary_scores'][binary]
+        for binary in jsondata1[package]['binary_scores']
+    )
 
 package_scores2 = []
 binary_scores2 = []
 for package in jsondata2.keys():
     package_scores2.append(jsondata2[package]['package_score'])
-    for binary in jsondata2[package]['binary_scores']:
-        binary_scores2.append(jsondata2[package]['binary_scores'][binary])
+    binary_scores2.extend(
+        jsondata2[package]['binary_scores'][binary]
+        for binary in jsondata2[package]['binary_scores']
+    )
 
 p1 = sorted(package_scores1)
 b1 = sorted(binary_scores1)

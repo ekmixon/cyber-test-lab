@@ -37,21 +37,21 @@ def main(argv):
 
     for repo in ctl.repo_list:
         if debug:
-            print('+ ' + repo)
-        for root, dirs, files in os.walk(repo_dir + '/' + repo):
+            print(f'+ {repo}')
+        for root, dirs, files in os.walk(f'{repo_dir}/{repo}'):
             for filename in files:
                 if debug:
-                    print('+ ' + filename)
-                results_dir = output_dir + '/' + filename[0]
-                results_file = results_dir + '/' + filename + '.json'
+                    print(f'+ {filename}')
+                results_dir = f'{output_dir}/{filename[0]}'
+                results_file = f'{results_dir}/{filename}.json'
                 if not os.path.isfile(results_file):
                     if debug:
-                        print('++ analyzing ' + filename)
+                        print(f'++ analyzing {filename}')
                     ctl.prep_swap()
                     try:
                         analyze(ctl, repo, filename, results_dir, results_file)
                     except Exception as e:
-                        print('analysis failed on ' + filename)
+                        print(f'analysis failed on {filename}')
                         traceback.print_exc()
                         continue
 
@@ -59,8 +59,7 @@ def main(argv):
 def analyze(ctl, repo, filename, results_dir, results_file):
     ctl.prep_rpm(repo, filename)
     metadata = ctl.get_metadata(filename)
-    elfs = ctl.find_elfs()
-    if elfs:
+    if elfs := ctl.find_elfs():
         results = ctl.scan_elfs(filename, elfs)
         ctl.redteam.funcs.mkdir_p(results_dir)
         with open(results_file, 'w') as f:

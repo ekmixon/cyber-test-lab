@@ -13,8 +13,10 @@ package_scores = []
 binary_scores = []
 for package in jsondata.keys():
     package_scores.append(jsondata[package]['package_score'])
-    for binary in jsondata[package]['binary_scores']:
-        binary_scores.append(jsondata[package]['binary_scores'][binary])
+    binary_scores.extend(
+        jsondata[package]['binary_scores'][binary]
+        for binary in jsondata[package]['binary_scores']
+    )
 
 p = sorted(package_scores)
 b = sorted(binary_scores)

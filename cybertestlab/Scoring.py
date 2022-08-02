@@ -24,20 +24,18 @@ class Scoring(object):
         for root, dirs, files in os.walk(path):
             for directory in dirs:
                 if self.debug:
-                    print('+ walking ' + path + '/' + directory)
-                for r, d, f in os.walk(path + '/' + directory):
+                    print(f'+ walking {path}/{directory}')
+                for r, d, f in os.walk(f'{path}/{directory}'):
                     for filename in f:
-                        abspath = path + '/' + directory + '/' + filename
+                        abspath = f'{path}/{directory}/{filename}'
 
                         if self.debug:
-                            print('++ scoring ' + abspath)
+                            print(f'++ scoring {abspath}')
                         binary_scores = self.score_json(abspath)
                         if binary_scores is None or len(binary_scores.keys()) == 0:
                             continue
 
-                        bscores = []
-                        for binary in binary_scores.keys():
-                            bscores.append(binary_scores[binary])
+                        bscores = [binary_scores[binary] for binary in binary_scores.keys()]
                         package_score = np.mean(bscores)
 
                         scores[filename] = {"package_score": package_score,
@@ -58,7 +56,7 @@ class Scoring(object):
         binaries = jsondata['results'].keys()
         for binary in binaries:
             if self.debug:
-                print('+++ scoring binary ' + binary)
+                print(f'+++ scoring binary {binary}')
             score = self.score_binary(jsondata['results'][binary])
             if score is None:
                 continue
@@ -104,15 +102,15 @@ class Scoring(object):
         # handle hardening check values
         for check in hardening_schema.keys():
             for value in hardening_schema[check].keys():
-                if value in hardening[' ' + check]:
+                if value in hardening[f' {check}']:
                     score += hardening_schema[check][value]
 
         # check for bad functions
         bad_functions = set(self.score_schema['bad_functions']['functions'])
         addend = self.score_schema['bad_functions']['addend']
-        if len(bad_functions.union(libc_functions)) > 0:
+        if bad_functions.union(libc_functions):
             score += addend
-        if len(bad_functions.union(functions)) > 0:
+        if bad_functions.union(functions):
             score += addend
 
         return score

@@ -50,41 +50,44 @@ class CyberTestLab(object):
     def repo_sync(self, command):
         args = ''
         if 'reposync' in command:
-            args = ' -p ' + self.repo_dir
+            args = f' -p {self.repo_dir}'
         else:
-            raise Exception('CyberTestLab: unsupported repo type: ' + command)
+            raise Exception(f'CyberTestLab: unsupported repo type: {command}')
         sync_cmd = self.redteam.funcs.which(command) + args
         r = self.redteam.funcs.run_command(sync_cmd, 'syncing repos')
 
     def prep_swap(self):
         rm = self.redteam.funcs.which('rm')
-        cmd = rm + ' -Rf ' + self.swap_path + '/*'
+        cmd = f'{rm} -Rf {self.swap_path}/*'
         r = self.redteam.funcs.run_command(cmd, 'clean up swap path')
 
     def prep_rpm(self, repo, rpm):
         cp = self.redteam.funcs.which('cp')
-        cmd = cp + ' ' + self.repo_dir + '/' + \
-              repo + '/' + rpm + ' ' + \
-              self.swap_path
+        cmd = (
+            (((f'{cp} {self.repo_dir}/' + repo) + '/') + rpm) + ' '
+        ) + self.swap_path
+
         r = self.redteam.funcs.run_command(cmd, 'cp rpm to swap_path')
 
         # crack the rpm open
         # cd = self.redteam.funcs.which('cd')
         rpm2cpio = self.redteam.funcs.which('rpm2cpio')
         cpio = self.redteam.funcs.which('cpio')
-        cmd = '(cd ' + self.swap_path + ' && ' + rpm2cpio + ' ' + \
-              rpm + ' | ' + cpio + ' -idm 2>&1 >/dev/null)'
+        cmd = (
+            ((f'(cd {self.swap_path} && {rpm2cpio} ' + rpm) + ' | ') + cpio
+        ) + ' -idm 2>&1 >/dev/null)'
+
         r = self.redteam.funcs.run_command(cmd, 'rpm2cpio pipe to cpio')
 
     def get_metadata(self, rpm):
         rpm_data = {}
-        cmd = 'rpm -qip ' + self.swap_path + '/' + rpm
+        cmd = f'rpm -qip {self.swap_path}/{rpm}'
         # this is a list
         rpm_qip = self.redteam.funcs.run_command(cmd, 'rpm -qip')
 
         if len(rpm_qip.split('Description :')) > 1:
             not_description, description = \
-                rpm_qip.split('Description :')
+                    rpm_qip.split('Description :')
             raw_metadata = not_description.split('\n')
             metadata = {}
             for line in raw_metadata:
@@ -107,40 +110,39 @@ class CyberTestLab(object):
         find_results = []
         find = self.redteam.funcs.which('find')
         grep = self.redteam.funcs.which('grep')
-        cmd = find + ' ' + swap_path + \
-              ' -type f -exec file {} \; | ' + grep + ' -i elf'
+        cmd = (
+            (f'{find} {swap_path}' + ' -type f -exec file {} \; | ') + grep
+        ) + ' -i elf'
+
         find_results = self.redteam.funcs.run_command(cmd, 'find elfs')
 
-        elfs = []
-        for result in filter(None, find_results.split('\n')):
-            elfs.append(result.split(':')[0])
+        elfs = [
+            result.split(':')[0]
+            for result in filter(None, find_results.split('\n'))
+        ]
 
-        if len(elfs) == 0:
-            return None
-        else:
-            return filter(None, elfs)
+        return filter(None, elfs) if elfs else None
 
     def scan_elfs(self, rpm, elfs):
         if not elfs:
             raise Exception('scan_elfs: you gave me an empty list of elfs you dope')
         scan_results = {}
-        
+
         for elf in elfs:
             if self.debug:
-                print('++ elf: ' + elf.replace(self.swap_path + '/', ''))
+                print('++ elf: ' + elf.replace(f'{self.swap_path}/', ''))
             binary = elf
-            relative_binary = \
-                binary.replace(self.swap_path + '/', '').replace('.', '_')
+            relative_binary = binary.replace(f'{self.swap_path}/', '').replace('.', '_')
 
-            scan_results[relative_binary] = {}
-            scan_results[relative_binary]['rpm'] = rpm
-            scan_results[relative_binary]['filename'] = binary.replace(
-                self.swap_path + '/', '')
+            scan_results[relative_binary] = {
+                'rpm': rpm,
+                'filename': binary.replace(f'{self.swap_path}/', ''),
+            }
 
             # get hardening-check results
-            cmd = self.hardening_check + ' ' + binary
+            cmd = f'{self.hardening_check} {binary}'
             hardening_results = \
-                self.redteam.funcs.run_command(cmd, 'hardening-check')
+                    self.redteam.funcs.run_command(cmd, 'hardening-check')
 
             # turn the hardening-check results into a dict
             pretty_results = {}
@@ -156,15 +158,15 @@ class CyberTestLab(object):
             scan_results[relative_binary]['hardening-check'] = pretty_results
 
             # get function report
-            cmd = self.hardening_check + ' -R ' + binary
+            cmd = f'{self.hardening_check} -R {binary}'
             hardening_results = \
-                self.redteam.funcs.run_command(cmd, 'hardening-check -R')
+                    self.redteam.funcs.run_command(cmd, 'hardening-check -R')
             # relevant stuff starts at 9th line
             scan_results[relative_binary]['report-functions'] = \
-                filter(None, hardening_results.split('\n')[8:])
+                    filter(None, hardening_results.split('\n')[8:])
 
             # get libc functions
-            cmd = self.hardening_check + ' -F ' + binary
+            cmd = f'{self.hardening_check} -F {binary}'
             hcdashf = filter(
                 None,
                 self.redteam.funcs.run_command(cmd,
@@ -175,11 +177,16 @@ class CyberTestLab(object):
                 if len(lib.split("'")) > 1:
                     hcdashf_clean.append(lib.split("'")[1])
                     scan_results[relative_binary]['find-libc-functions'] = \
-                        hcdashf_clean
-                else:
-                    if self.debug:
-                        print('+++ ' + elf.replace(self.swap_path + '/', '') +
-                              ' had no `hardening-check -F` output')
+                            hcdashf_clean
+                elif self.debug:
+                    print(
+                        (
+                            '+++ '
+                            + elf.replace(f'{self.swap_path}/', '')
+                            + ' had no `hardening-check -F` output'
+                        )
+                    )
+
 
             scan_results[relative_binary]['complexity'] = self.get_complexity(binary)
 
@@ -211,9 +218,9 @@ class CyberTestLab(object):
                 complexity = r2.cmdj('afCc @main')
         except Exception as e:
             if self.debug:
-                print('++ get_complexity caught exception: ' + str(e))
+                print(f'++ get_complexity caught exception: {str(e)}')
             r2.quit()
-            return {'r2aa': 'failed: ' + str(e)}
+            return {'r2aa': f'failed: {str(e)}'}
 
         r2.quit()
         return {'r2aa':
